@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Scanner</title>
+    <script src="./node_modules/html5-qrcode/html5-qrcode.min.js"></script>
+</head>
+<body>
+    
+    <style>
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        #reader {
+            width: 600px;
+            display: none; /* Oculto hasta que se active el escáner */
+        }
+        #result {
+            text-align: center;
+            font-size: 1.5rem;
+        }
+        #form-container {
+            display: none; /* Oculto hasta que se active el formulario */
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+
+    <main>
+        <button id="scan-btn">Escanear Código QR</button>
+        <button id="manual-btn">Ingresar Datos Manualmente</button>
+
+        <div id="reader"></div>
+        <div id="result"></div>
+
+        <!-- Formulario manual -->
+        <div id="form-container">
+            <h2>Ingresar Datos Manualmente</h2>
+            <form id="manual-form">
+                <label for="name">Nombre:</label>
+                <input type="text" id="name" required><br><br>
+
+                <label for="company">Compañía:</label>
+                <input type="text" id="company" required><br><br>
+
+                <label for="reason">Motivo de la Visita:</label>
+                <input type="text" id="reason" required><br><br>
+
+                <button  id ="guardar"type="submit">Guardar Datos</button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        let scanner = null;
+
+        function startScanner(cameraId) {
+            if (scanner) {
+                scanner.stop().then(() => {
+                    document.getElementById("reader").innerHTML = ""; // Limpiar el div para reiniciar
+                    scanner = new Html5Qrcode("reader");
+                    scanner.start(
+                        cameraId,
+                        { fps: 30, 
+                          qrbox: { width: 320, height: 300 },
+                          aspectRatio: 1.7778,
+                          disableFlip: true,
+                          videoConstraints: {
+                            width: { ideal: 1920 },  // Intenta obtener una resolución más alta
+                            height: { ideal: 1080 },
+                            focusMode: "continuous"  // Intenta forzar el autoenfoque
+                        }
+                        
+                        },
+                        (decodedText) => {
+                            document.getElementById("result").innerHTML = `
+                                <h2>¡Código Detectado!</h2>
+                                <p>${decodedText}</p>
+                            `;
+                            
+                            scanner.stop();
+                        },
+                        (errorMessage) => {
+                            console.log(errorMessage);
+                        }
+                    );
+                });
+            } else {
+                scanner = new Html5Qrcode("reader");
+                scanner.start(
+                    cameraId,
+                    { fps: 30, qrbox: { width: 380, height: 300 } },
+                    (decodedText) => {
+                        document.getElementById("result").innerHTML = `
+                            <h2>¡Código Detectado!</h2>
+                            <p>${decodedText}</p>
+                        `;
+                        console.log(decodedText)
+                        scanner.stop();
+                    },
+                    (errorMessage) => {
+                        console.log(errorMessage);
+                    }
+                );
+            }
+        }
+
+        document.getElementById("scan-btn").addEventListener("click", () => {
+            document.getElementById("reader").style.display = "block";
+            document.getElementById("form-container").style.display = "none";
+
+            Html5Qrcode.getCameras().then(devices => {
+                if (devices && devices.length) {
+                    let selectedCamera = devices.find(device => device.label.includes("Tenveo VA200 Pro")) || devices[0];
+                    startScanner(selectedCamera.id);
+                }
+            }).catch(err => {
+                console.error("Error obteniendo cámaras: ", err);
+            });
+        });
+
+        document.getElementById("manual-btn").addEventListener("click", () => {
+            document.getElementById("reader").style.display = "none";
+            document.getElementById("form-container").style.display = "block";
+            if (scanner) {
+                scanner.stop().then(() => {
+                    document.getElementById("reader").innerHTML = ""; // Limpiar el escáner
+                    scanner = null;
+                });
+            }
+        });
+
+        document.getElementById("manual-form").addEventListener("submit", (e) => {
+            e.preventDefault();
+            const name = document.getElementById("name").value;
+            const company = document.getElementById("company").value;
+            const reason = document.getElementById("reason").value;
+            
+            document.getElementById("result").innerHTML = `
+                <h2>Datos Registrados</h2>
+                <p><strong>Nombre:</strong> ${name}</p>
+                <p><strong>Compañía:</strong> ${company}</p>
+                <p><strong>Motivo:</strong> ${reason}</p>
+            `;
+
+            document.getElementById("manual-form").reset();
+        });
+
+    </script>
+
+</body>
+</html>
